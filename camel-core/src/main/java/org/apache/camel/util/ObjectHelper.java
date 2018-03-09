@@ -54,7 +54,10 @@ import org.w3c.dom.Node;
 import org.w3c.dom.NodeList;
 
 import org.apache.camel.CamelContext;
+import org.apache.camel.CamelContextAware;
 import org.apache.camel.CamelExecutionException;
+import org.apache.camel.Component;
+import org.apache.camel.ComponentAware;
 import org.apache.camel.Exchange;
 import org.apache.camel.Message;
 import org.apache.camel.Ordered;
@@ -389,7 +392,6 @@ public final class ObjectHelper {
      * @param value  the value, if its a String it will be tested for text length as well
      * @return true if <b>not</b> empty
      */
-    @SuppressWarnings("unchecked")
     public static boolean isNotEmpty(Object value) {
         if (value == null) {
             return false;
@@ -420,6 +422,21 @@ public final class ObjectHelper {
         }
 
         return Optional.empty();
+    }
+
+    /**
+     * Tests whether the value is  <tt>null</tt>, an empty string, an empty collection or a map
+     *
+     * @param value  the value, if its a String it will be tested for text length as well
+     * @param supplier  the supplier, the supplier to be used to get a value if value is null
+     */
+    public static <T> T supplyIfEmpty(T value, Supplier<T> supplier) {
+        ObjectHelper.notNull(supplier, "Supplier");
+        if (isNotEmpty(value)) {
+            return value;
+        }
+
+        return supplier.get();
     }
 
     /**
@@ -1133,9 +1150,9 @@ public final class ObjectHelper {
 
         if (clazz == null) {
             if (needToWarn) {
-                LOG.warn("Cannot find class: " + name);
+                LOG.warn("Cannot find class: {}", name);
             } else {
-                LOG.debug("Cannot find class: " + name);
+                LOG.debug("Cannot find class: {}", name);
             }
         }
 
@@ -1438,7 +1455,7 @@ public final class ObjectHelper {
 
         if (source.equals(target)) {
             return true;
-        } else if (source.getDeclaringClass() == target.getDeclaringClass()) {
+        } else if (target.getDeclaringClass().isAssignableFrom(source.getDeclaringClass())) {
             return false;
         } else if (!source.getDeclaringClass().isAssignableFrom(inheritingClass) || !target.getDeclaringClass().isAssignableFrom(inheritingClass)) {
             return false;
@@ -2054,6 +2071,28 @@ public final class ObjectHelper {
                 Thread.currentThread().setContextClassLoader(tccl);
             }
         }
+    }
+
+    /**
+     * Set the {@link CamelContext} context if the component is an instance of {@link CamelContextAware}.
+     */
+    public static <T> T trySetCamelContext(T object, CamelContext camelContext) {
+        if (object instanceof CamelContextAware) {
+            ((CamelContextAware) object).setCamelContext(camelContext);
+        }
+
+        return object;
+    }
+
+    /**
+     * Set the {@link Component} context if the component is an instance of {@link ComponentAware}.
+     */
+    public static <T> T trySetComponent(T object, Component component) {
+        if (object instanceof ComponentAware) {
+            ((ComponentAware) object).setComponent(component);
+        }
+
+        return object;
     }
     
 }

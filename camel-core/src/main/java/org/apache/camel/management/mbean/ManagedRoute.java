@@ -49,6 +49,7 @@ import org.apache.camel.model.ModelHelper;
 import org.apache.camel.model.RouteDefinition;
 import org.apache.camel.spi.InflightRepository;
 import org.apache.camel.spi.ManagementStrategy;
+import org.apache.camel.spi.RouteError;
 import org.apache.camel.spi.RoutePolicy;
 import org.apache.camel.util.ObjectHelper;
 import org.apache.camel.util.XmlLineNumberParser;
@@ -215,28 +216,28 @@ public class ManagedRoute extends ManagedPerformanceCounter implements TimerList
         if (!context.getStatus().isStarted()) {
             throw new IllegalArgumentException("CamelContext is not started");
         }
-        context.startRoute(getRouteId());
+        context.getRouteController().startRoute(getRouteId());
     }
 
     public void stop() throws Exception {
         if (!context.getStatus().isStarted()) {
             throw new IllegalArgumentException("CamelContext is not started");
         }
-        context.stopRoute(getRouteId());
+        context.getRouteController().stopRoute(getRouteId());
     }
 
     public void stop(long timeout) throws Exception {
         if (!context.getStatus().isStarted()) {
             throw new IllegalArgumentException("CamelContext is not started");
         }
-        context.stopRoute(getRouteId(), timeout, TimeUnit.SECONDS);
+        context.getRouteController().stopRoute(getRouteId(), timeout, TimeUnit.SECONDS);
     }
 
     public boolean stop(Long timeout, Boolean abortAfterTimeout) throws Exception {
         if (!context.getStatus().isStarted()) {
             throw new IllegalArgumentException("CamelContext is not started");
         }
-        return context.stopRoute(getRouteId(), timeout, TimeUnit.SECONDS, abortAfterTimeout);
+        return context.getRouteController().stopRoute(getRouteId(), timeout, TimeUnit.SECONDS, abortAfterTimeout);
     }
 
     public void shutdown() throws Exception {
@@ -264,6 +265,25 @@ public class ManagedRoute extends ManagedPerformanceCounter implements TimerList
         return context.removeRoute(getRouteId());
     }
 
+    @Override
+    public void restart() throws Exception {
+        restart(1);
+    }
+
+    @Override
+    public void restart(long delay) throws Exception {
+        stop();
+        if (delay > 0) {
+            try {
+                LOG.debug("Sleeping {} seconds before starting route: {}", delay, getRouteId());
+                Thread.sleep(delay * 1000);
+            } catch (InterruptedException e) {
+                // ignore
+            }
+        }
+        start();
+    }
+
     public String dumpRouteAsXml() throws Exception {
         return dumpRouteAsXml(false);
     }
@@ -278,7 +298,7 @@ public class ManagedRoute extends ManagedPerformanceCounter implements TimerList
             // if resolving placeholders we parse the xml, and resolve the property placeholders during parsing
             if (resolvePlaceholders) {
                 final AtomicBoolean changed = new AtomicBoolean();
-                InputStream is = new ByteArrayInputStream(xml.getBytes());
+                InputStream is = new ByteArrayInputStream(xml.getBytes("UTF-8"));
                 Document dom = XmlLineNumberParser.parseXml(is, new XmlLineNumberParser.XmlTextTransformer() {
                     @Override
                     public String transform(String text) {
@@ -479,6 +499,16 @@ public class ManagedRoute extends ManagedPerformanceCounter implements TimerList
         } else {
             return oldest.getExchange().getExchangeId();
         }
+    }
+
+    @Override
+    public Boolean getHasRouteController() {
+        return route.getRouteContext().getRouteController() != null;
+    }
+
+    @Override
+    public RouteError getLastError() {
+        return route.getRouteContext().getLastError();
     }
 
     /**

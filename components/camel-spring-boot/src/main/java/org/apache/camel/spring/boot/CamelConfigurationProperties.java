@@ -96,6 +96,36 @@ public class CamelConfigurationProperties {
     private boolean loadTypeConverters = true;
 
     /**
+     * Used for inclusive filtering component scanning of RouteBuilder classes with @Component annotation.
+     * The exclusive filtering takes precedence over inclusive filtering.
+     * The pattern is using Ant-path style pattern.
+     * <p/>
+     * Multiple patterns can be specified separated by comma.
+     * For example to include all classes starting with Foo use <tt>&#42;&#42;/Foo*</tt>.
+     * To include all routes form a specific package use, <tt>com/mycompany/foo/*</tt>
+     * To include all routes form a specific package and its sub-packages use double wildcards, <tt>com/mycompany/foo/**</tt>
+     * And to include all routes from two specific packages use, <tt>com/mycompany/foo/*,com/mycompany/stuff/*</tt>
+     *
+     * @see org.springframework.util.AntPathMatcher
+     */
+    private String javaRoutesIncludePattern;
+
+    /**
+     * Used for exclusive filtering component scanning of RouteBuilder classes with @Component annotation.
+     * The exclusive filtering takes precedence over inclusive filtering.
+     * The pattern is using Ant-path style pattern.
+     * Multiple patterns can be specified separated by comma.
+     * <p/>
+     * For example to exclude all classes starting with Bar use <tt>&#42;&#42;/Bar*</tt>.
+     * To exclude all routes form a specific package use, <tt>com/mycompany/bar/*</tt>
+     * To exclude all routes form a specific package and its sub-packages use double wildcards, <tt>com/mycompany/bar/**</tt>
+     * And to exclude all routes from two specific packages use, <tt>com/mycompany/bar/*,com/mycompany/stuff/*</tt>
+     *
+     * @see org.springframework.util.AntPathMatcher
+     */
+    private String javaRoutesExcludePattern;
+
+    /**
      * Directory to scan for adding additional XML routes.
      * You can turn this off by setting the value to false.
      */
@@ -162,8 +192,8 @@ public class CamelConfigurationProperties {
 
     /**
      * Is used to limit the maximum length of the logging Camel message bodies. If the message body
-     * is longer than the limit, the log message is clipped. Use a value of 0 or negative to have unlimited length.
-     * Use for example 1000 to log at at most 1000 chars.
+     * is longer than the limit, the log message is clipped. Use -1 to have unlimited length.
+     * Use for example 1000 to log at most 1000 characters.
      */
     private int logDebugMaxChars;
 
@@ -419,6 +449,18 @@ public class CamelConfigurationProperties {
      */
     private boolean useMDCLogging;
 
+    /**
+     * Sets the thread name pattern used for creating the full thread name.
+     * <p/>
+     * The default pattern is: <tt>Camel (#camelId#) thread ##counter# - #name#</tt>
+     * <p/>
+     * Where <tt>#camelId#</tt> is the name of the {@link org.apache.camel.CamelContext}
+     * <br/>and <tt>#counter#</tt> is a unique incrementing counter.
+     * <br/>and <tt>#name#</tt> is the regular thread name.
+     * <br/>You can also use <tt>#longName#</tt> is the long thread name which can includes endpoint parameters etc.
+     */
+    private String threadNamePattern;
+
     // Getters & setters
 
     public String getName() {
@@ -507,6 +549,22 @@ public class CamelConfigurationProperties {
 
     public void setLoadTypeConverters(boolean loadTypeConverters) {
         this.loadTypeConverters = loadTypeConverters;
+    }
+
+    public String getJavaRoutesIncludePattern() {
+        return javaRoutesIncludePattern;
+    }
+
+    public void setJavaRoutesIncludePattern(String javaRoutesIncludePattern) {
+        this.javaRoutesIncludePattern = javaRoutesIncludePattern;
+    }
+
+    public String getJavaRoutesExcludePattern() {
+        return javaRoutesExcludePattern;
+    }
+
+    public void setJavaRoutesExcludePattern(String javaRoutesExcludePattern) {
+        this.javaRoutesExcludePattern = javaRoutesExcludePattern;
     }
 
     public String getXmlRoutes() {
@@ -901,5 +959,13 @@ public class CamelConfigurationProperties {
     
     public void setUseMDCLogging(boolean useMDCLogging) {
         this.useMDCLogging = useMDCLogging;
+    }
+
+    public String getThreadNamePattern() {
+        return threadNamePattern;
+    }
+
+    public void setThreadNamePattern(String threadNamePattern) {
+        this.threadNamePattern = threadNamePattern;
     }
 }

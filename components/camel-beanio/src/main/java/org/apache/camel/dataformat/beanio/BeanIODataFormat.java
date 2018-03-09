@@ -31,6 +31,7 @@ import java.util.Properties;
 import org.apache.camel.CamelContext;
 import org.apache.camel.CamelContextAware;
 import org.apache.camel.Exchange;
+import org.apache.camel.NoTypeConversionAvailableException;
 import org.apache.camel.spi.DataFormat;
 import org.apache.camel.spi.DataFormatName;
 import org.apache.camel.support.ServiceSupport;
@@ -41,6 +42,7 @@ import org.beanio.BeanReader;
 import org.beanio.BeanReaderErrorHandler;
 import org.beanio.BeanWriter;
 import org.beanio.StreamFactory;
+import org.beanio.Unmarshaller;
 
 import static org.apache.camel.dataformat.beanio.BeanIOHelper.getOrCreateBeanReaderErrorHandler;
 
@@ -111,7 +113,11 @@ public class BeanIODataFormat extends ServiceSupport implements DataFormat, Data
     }
 
     public Object unmarshal(Exchange exchange, InputStream stream) throws Exception {
-        return readModels(exchange, stream);
+        if (isUnmarshalSingleObject()) {
+            return readSingleModel(exchange, stream);
+        } else {
+            return readModels(exchange, stream);
+        }
     }
 
     @SuppressWarnings("unchecked")
@@ -163,6 +169,17 @@ public class BeanIODataFormat extends ServiceSupport implements DataFormat, Data
         return results;
     }
 
+    private Object readSingleModel(Exchange exchange, InputStream stream) throws NoTypeConversionAvailableException {
+        BufferedReader streamReader = IOHelper.buffered(new InputStreamReader(stream, getEncoding()));
+        try {
+            String data = exchange.getContext().getTypeConverter().mandatoryConvertTo(String.class, exchange, streamReader);
+            Unmarshaller unmarshaller = factory.createUnmarshaller(getStreamName());
+            return unmarshaller.unmarshal(data);
+        } finally {
+            IOHelper.close(stream);
+        }
+    }
+
     public String getMapping() {
         return configuration.getMapping();
     }
@@ -191,7 +208,14 @@ public class BeanIODataFormat extends ServiceSupport implements DataFormat, Data
         configuration.setIgnoreInvalidRecords(ignoreInvalidRecords);
     }
 
+    public void setEncoding(String encoding) {
+        setEncoding(Charset.forName(encoding));
+    }
+
     public void setEncoding(Charset encoding) {
+        if (encoding == null) {
+            throw new IllegalArgumentException("Charset encoding is null");
+        }
         configuration.setEncoding(encoding);
     }
 
@@ -238,4 +262,13 @@ public class BeanIODataFormat extends ServiceSupport implements DataFormat, Data
     public void setBeanReaderErrorHandlerType(Class<?> beanReaderErrorHandlerType) {
         configuration.setBeanReaderErrorHandlerType(beanReaderErrorHandlerType);
     }
+
+    public boolean isUnmarshalSingleObject() {
+        return configuration.isUnmarshalSingleObject();
+    }
+
+    public void setUnmarshalSingleObject(boolean unmarshalSingleObject) {
+        configuration.setUnmarshalSingleObject(unmarshalSingleObject);
+    }
+
 }

@@ -25,6 +25,7 @@ import java.net.URI;
 import java.net.URISyntaxException;
 import java.security.GeneralSecurityException;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
@@ -346,12 +347,20 @@ public abstract class JettyHttpComponent extends HttpCommonComponent implements 
                 CONNECTORS.put(connectorKey, connectorRef);
 
             } else {
-
+                // check if there are any new handlers, and if so then we need to re-start the server
                 if (endpoint.getHandlers() != null && !endpoint.getHandlers().isEmpty()) {
-                    // As the server is started, we need to stop the server for a while to add the new handler
-                    connectorRef.server.stop();
-                    addJettyHandlers(connectorRef.server, endpoint.getHandlers());
-                    connectorRef.server.start();
+                    List<Handler> existingHandlers = new ArrayList<>();
+                    if (connectorRef.server.getHandlers() != null && connectorRef.server.getHandlers().length > 0) {
+                        existingHandlers = Arrays.asList(connectorRef.server.getHandlers());
+                    }
+                    List<Handler> newHandlers = new ArrayList<>(endpoint.getHandlers());
+                    boolean changed = !existingHandlers.containsAll(newHandlers) && !newHandlers.containsAll(existingHandlers);
+                    if (changed) {
+                        LOG.debug("Restarting Jetty server due to adding new Jetty Handlers: {}", newHandlers);
+                        connectorRef.server.stop();
+                        addJettyHandlers(connectorRef.server, endpoint.getHandlers());
+                        connectorRef.server.start();
+                    }
                 }
                 // ref track the connector
                 connectorRef.increment();
@@ -621,6 +630,41 @@ public abstract class JettyHttpComponent extends HttpCommonComponent implements 
         if (ssl != null) {
             answer.setSslContext(ssl.createSSLContext(getCamelContext()));
         }
+
+        // jetty default is
+        // addExcludeProtocols("SSL", "SSLv2", "SSLv2Hello", "SSLv3");
+        // setExcludeCipherSuites("^.*_(MD5|SHA|SHA1)$");
+
+        // configure include/exclude ciphers and protocols
+        if (ssl != null && ssl.getCipherSuitesFilter() != null)  {
+            List<String> includeCiphers = ssl.getCipherSuitesFilter().getInclude();
+            if (includeCiphers != null && !includeCiphers.isEmpty()) {
+                String[] arr = includeCiphers.toArray(new String[includeCiphers.size()]);
+                answer.setIncludeCipherSuites(arr);
+            } else {
+                answer.setIncludeCipherSuites(".*");
+            }
+            List<String> excludeCiphers = ssl.getCipherSuitesFilter().getExclude();
+            if (excludeCiphers != null && !excludeCiphers.isEmpty()) {
+                String[] arr = excludeCiphers.toArray(new String[excludeCiphers.size()]);
+                answer.setExcludeCipherSuites(arr);
+            }
+        }
+        if (ssl != null && ssl.getSecureSocketProtocolsFilter() != null) {
+            List<String> includeProtocols = ssl.getSecureSocketProtocolsFilter().getInclude();
+            if (includeProtocols != null && !includeProtocols.isEmpty()) {
+                String[] arr = includeProtocols.toArray(new String[includeProtocols.size()]);
+                answer.setIncludeProtocols(arr);
+            } else {
+                answer.setIncludeProtocols(".*");
+            }
+            List<String> excludeProtocols = ssl.getSecureSocketProtocolsFilter().getExclude();
+            if (excludeProtocols != null && !excludeProtocols.isEmpty()) {
+                String[] arr = excludeProtocols.toArray(new String[excludeProtocols.size()]);
+                answer.setExcludeProtocols(arr);
+            }
+        }
+
         return answer;
     }
 

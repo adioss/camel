@@ -190,8 +190,9 @@ public class PackageDataFormatMojo extends AbstractMojo {
                             OutputStream fos = buildContext.newFileOutputStream(out);
                             fos.write(schema.getBytes());
                             fos.close();
-
-                            log.debug("Generated " + out + " containing JSon schema for " + name + " data format");
+                            if (log.isDebugEnabled()) {
+                                log.debug("Generated " + out + " containing JSon schema for " + name + " data format");
+                            }
                         }
                     }
                 }
@@ -274,17 +275,18 @@ public class PackageDataFormatMojo extends AbstractMojo {
             if (row.containsKey("deprecated")) {
                 dataFormatModel.setDeprecated(row.get("deprecated"));
             }
+            if (row.containsKey("deprecationNote")) {
+                dataFormatModel.setDeprecationNote(row.get("deprecationNote"));
+            }
             if (row.containsKey("javaType")) {
                 dataFormatModel.setModelJavaType(row.get("javaType"));
             }
             if (row.containsKey("firstVersion")) {
                 dataFormatModel.setFirstVersion(row.get("firstVersion"));
             }
-            // override description for camel-core, as otherwise its too generic
-            if ("camel-core".equals(project.getArtifactId())) {
-                if (row.containsKey("description")) {
-                    dataFormatModel.setDescription(row.get("description"));
-                }
+            // favor description from the model schema
+            if (row.containsKey("description")) {
+                dataFormatModel.setDescription(row.get("description"));
             }
         }
 
@@ -488,6 +490,7 @@ public class PackageDataFormatMojo extends AbstractMojo {
         private String firstVersion;
         private String label;
         private String deprecated;
+        private String deprecationNote;
         private String javaType;
         private String modelJavaType;
         private String groupId;
@@ -556,6 +559,14 @@ public class PackageDataFormatMojo extends AbstractMojo {
 
         public void setDeprecated(String deprecated) {
             this.deprecated = deprecated;
+        }
+
+        public String getDeprecationNote() {
+            return deprecationNote;
+        }
+
+        public void setDeprecationNote(String deprecationNote) {
+            this.deprecationNote = deprecationNote;
         }
 
         public String getJavaType() {

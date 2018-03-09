@@ -18,6 +18,7 @@ package org.apache.camel.component.kafka.springboot;
 
 import java.util.concurrent.ExecutorService;
 import javax.annotation.Generated;
+import org.apache.camel.component.kafka.KafkaManualCommitFactory;
 import org.apache.camel.spi.StateRepository;
 import org.apache.camel.spring.boot.ComponentConfigurationPropertiesCommon;
 import org.apache.camel.util.jsse.SSLContextParameters;
@@ -42,8 +43,8 @@ public class KafkaComponentConfiguration
      */
     private KafkaConfigurationNestedConfiguration configuration;
     /**
-     * URL of the Kafka brokers to use. The format is host1:port1host2:port2 and
-     * the list can be a subset of brokers or a VIP pointing to a subset of
+     * URL of the Kafka brokers to use. The format is host1:port1,host2:port2,
+     * and the list can be a subset of brokers or a VIP pointing to a subset of
      * brokers. This option is known as bootstrap.servers in the Kafka
      * documentation.
      */
@@ -64,13 +65,28 @@ public class KafkaComponentConfiguration
      * This options controls what happens when a consumer is processing an
      * exchange and it fails. If the option is false then the consumer continues
      * to the next message and processes it. If the option is true then the
-     * consumer breaks out and will seek back to offset of the message that
-     * caused a failure and then re-attempt to process this message. However
+     * consumer breaks out, and will seek back to offset of the message that
+     * caused a failure, and then re-attempt to process this message. However
      * this can lead to endless processing of the same message if its bound to
-     * fail every time eg a poison message. Therefore its recommended to deal
+     * fail every time, eg a poison message. Therefore its recommended to deal
      * with that for example by using Camel's error handler.
      */
     private Boolean breakOnFirstError = false;
+    /**
+     * Whether to allow doing manual commits via KafkaManualCommit. If this
+     * option is enabled then an instance of KafkaManualCommit is stored on the
+     * Exchange message header, which allows end users to access this API and
+     * perform manual offset commits via the Kafka consumer.
+     */
+    private Boolean allowManualCommit = false;
+    /**
+     * Factory to use for creating KafkaManualCommit instances. This allows to
+     * plugin a custom factory to create custom KafkaManualCommit instances in
+     * case special logic is needed when doing manual commits that deviates from
+     * the default implementation that comes out of the box.
+     */
+    @NestedConfigurationProperty
+    private KafkaManualCommitFactory kafkaManualCommitFactory;
     /**
      * Whether the component should resolve property placeholders on itself when
      * starting. Only properties which are of String type can use property
@@ -120,6 +136,23 @@ public class KafkaComponentConfiguration
         this.breakOnFirstError = breakOnFirstError;
     }
 
+    public Boolean getAllowManualCommit() {
+        return allowManualCommit;
+    }
+
+    public void setAllowManualCommit(Boolean allowManualCommit) {
+        this.allowManualCommit = allowManualCommit;
+    }
+
+    public KafkaManualCommitFactory getKafkaManualCommitFactory() {
+        return kafkaManualCommitFactory;
+    }
+
+    public void setKafkaManualCommitFactory(
+            KafkaManualCommitFactory kafkaManualCommitFactory) {
+        this.kafkaManualCommitFactory = kafkaManualCommitFactory;
+    }
+
     public Boolean getResolvePropertyPlaceholders() {
         return resolvePropertyPlaceholders;
     }
@@ -131,6 +164,11 @@ public class KafkaComponentConfiguration
 
     public static class KafkaConfigurationNestedConfiguration {
         public static final Class CAMEL_NESTED_CLASS = org.apache.camel.component.kafka.KafkaConfiguration.class;
+        /**
+         * Whether the topic is a pattern (regular expression). This can be used
+         * to subscribe to dynamic number of topics matching the pattern.
+         */
+        private Boolean topicIsPattern = false;
         /**
          * A string that uniquely identifies the group of consumer processes to
          * which this consumer belongs. By setting the same group id multiple
@@ -186,6 +224,15 @@ public class KafkaComponentConfiguration
          * will begin.
          */
         private Boolean autoCommitEnable = true;
+        /**
+         * Whether to allow doing manual commits via {@link KafkaManualCommit} .
+         * <p/>
+         * If this option is enabled then an instance of
+         * {@link KafkaManualCommit} is stored on the {@link Exchange} message
+         * header, which allows end users to access this API and perform manual
+         * offset commits via the Kafka consumer.
+         */
+        private Boolean allowManualCommit = false;
         /**
          * The offset repository to use in order to locally store the offset of
          * each partition of the topic. Defining one will disable the
@@ -378,6 +425,12 @@ public class KafkaComponentConfiguration
          * xhtml</a>
          */
         private String saslMechanism = "GSSAPI";
+        /**
+         * Expose the kafka sasl.jaas.config parameter Example:
+         * org.apache.kafka.common.security.plain.PlainLoginModule required
+         * username="USERNAME" password="PASSWORD";
+         */
+        private String saslJaasConfig;
         /**
          * Protocol used to communicate with brokers. Currently only PLAINTEXT
          * and SSL are supported.
@@ -599,6 +652,15 @@ public class KafkaComponentConfiguration
          */
         private Long pollTimeoutMs = 5000L;
         /**
+         * The maximum delay between invocations of poll() when using consumer
+         * group management. This places an upper bound on the amount of time
+         * that the consumer can be idle before fetching more records. If poll()
+         * is not called before expiration of this timeout, then the consumer is
+         * considered failed and the group will rebalance in order to reassign
+         * the partitions to another member.
+         */
+        private Long maxPollIntervalMs;
+        /**
          * The class name of the partition assignment strategy that the client
          * will use to distribute partition ownership amongst consumer instances
          * when group management is used
@@ -672,6 +734,31 @@ public class KafkaComponentConfiguration
          * class cast exception in runtime
          */
         private String interceptorClasses;
+        /**
+         * If set to 'true' the producer will ensure that exactly one copy of
+         * each message is written in the stream. If 'false', producer retries
+         * may write duplicates of the retried message in the stream. If set to
+         * true this option will require max.in.flight.requests.per.connection
+         * to be set to 1 and retries cannot be zero and additionally acks must
+         * be set to 'all'.
+         */
+        private Boolean enableIdempotence = false;
+        /**
+         * The maximum amount of time in milliseconds to wait when reconnecting
+         * to a broker that has repeatedly failed to connect. If provided, the
+         * backoff per host will increase exponentially for each consecutive
+         * connection failure, up to this maximum. After calculating the backoff
+         * increase, 20% random jitter is added to avoid connection storms.
+         */
+        private Integer reconnectBackoffMaxMs = 1000;
+
+        public Boolean getTopicIsPattern() {
+            return topicIsPattern;
+        }
+
+        public void setTopicIsPattern(Boolean topicIsPattern) {
+            this.topicIsPattern = topicIsPattern;
+        }
 
         public String getGroupId() {
             return groupId;
@@ -743,6 +830,14 @@ public class KafkaComponentConfiguration
 
         public void setAutoCommitEnable(Boolean autoCommitEnable) {
             this.autoCommitEnable = autoCommitEnable;
+        }
+
+        public Boolean getAllowManualCommit() {
+            return allowManualCommit;
+        }
+
+        public void setAllowManualCommit(Boolean allowManualCommit) {
+            this.allowManualCommit = allowManualCommit;
         }
 
         public StateRepository getOffsetRepository() {
@@ -1005,6 +1100,14 @@ public class KafkaComponentConfiguration
             this.saslMechanism = saslMechanism;
         }
 
+        public String getSaslJaasConfig() {
+            return saslJaasConfig;
+        }
+
+        public void setSaslJaasConfig(String saslJaasConfig) {
+            this.saslJaasConfig = saslJaasConfig;
+        }
+
         public String getSecurityProtocol() {
             return securityProtocol;
         }
@@ -1238,6 +1341,14 @@ public class KafkaComponentConfiguration
             this.pollTimeoutMs = pollTimeoutMs;
         }
 
+        public Long getMaxPollIntervalMs() {
+            return maxPollIntervalMs;
+        }
+
+        public void setMaxPollIntervalMs(Long maxPollIntervalMs) {
+            this.maxPollIntervalMs = maxPollIntervalMs;
+        }
+
         public String getPartitionAssignor() {
             return partitionAssignor;
         }
@@ -1324,6 +1435,22 @@ public class KafkaComponentConfiguration
 
         public void setInterceptorClasses(String interceptorClasses) {
             this.interceptorClasses = interceptorClasses;
+        }
+
+        public Boolean getEnableIdempotence() {
+            return enableIdempotence;
+        }
+
+        public void setEnableIdempotence(Boolean enableIdempotence) {
+            this.enableIdempotence = enableIdempotence;
+        }
+
+        public Integer getReconnectBackoffMaxMs() {
+            return reconnectBackoffMaxMs;
+        }
+
+        public void setReconnectBackoffMaxMs(Integer reconnectBackoffMaxMs) {
+            this.reconnectBackoffMaxMs = reconnectBackoffMaxMs;
         }
     }
 }

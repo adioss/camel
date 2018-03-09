@@ -46,6 +46,7 @@ import org.apache.camel.StartupListener;
 import org.apache.camel.TimerListener;
 import org.apache.camel.VetoCamelContextStartException;
 import org.apache.camel.api.management.PerformanceCounter;
+import org.apache.camel.cluster.CamelClusterService;
 import org.apache.camel.impl.ConsumerCache;
 import org.apache.camel.impl.DefaultCamelContext;
 import org.apache.camel.impl.DefaultEndpointRegistry;
@@ -219,6 +220,28 @@ public class DefaultManagementLifecycleStrategy extends ServiceSupport implement
 
         // register any pre registered now that we are initialized
         enlistPreRegisteredServices();
+
+        try {
+            Object me = getManagementObjectStrategy().getManagedObjectForCamelHealth(camelContext);
+            if (me == null) {
+                // endpoint should not be managed
+                return;
+            }
+            manageObject(me);
+        } catch (Exception e) {
+            LOG.warn("Could not register CamelHealth MBean. This exception will be ignored.", e);
+        }
+
+        try {
+            Object me = getManagementObjectStrategy().getManagedObjectForRouteController(camelContext);
+            if (me == null) {
+                // endpoint should not be managed
+                return;
+            }
+            manageObject(me);
+        } catch (Exception e) {
+            LOG.warn("Could not register RouteController MBean. This exception will be ignored.", e);
+        }
     }
 
     private String findFreeName(Object mc, ManagementNameStrategy strategy, String name) throws MalformedObjectNameException {
@@ -276,6 +299,27 @@ public class DefaultManagementLifecycleStrategy extends ServiceSupport implement
         if (!initialized) {
             return;
         }
+
+        try {
+            Object mc = getManagementObjectStrategy().getManagedObjectForRouteController(context);
+            // the context could have been removed already
+            if (getManagementStrategy().isManaged(mc, null)) {
+                unmanageObject(mc);
+            }
+        } catch (Exception e) {
+            LOG.warn("Could not unregister RouteController MBean", e);
+        }
+
+        try {
+            Object mc = getManagementObjectStrategy().getManagedObjectForCamelHealth(context);
+            // the context could have been removed already
+            if (getManagementStrategy().isManaged(mc, null)) {
+                unmanageObject(mc);
+            }
+        } catch (Exception e) {
+            LOG.warn("Could not unregister CamelHealth MBean", e);
+        }
+
         try {
             Object mc = getManagementObjectStrategy().getManagedObjectForCamelContext(context);
             // the context could have been removed already
@@ -503,12 +547,14 @@ public class DefaultManagementLifecycleStrategy extends ServiceSupport implement
             answer = new ManagedValidatorRegistry(context, (ValidatorRegistry)service);
         } else if (service instanceof RuntimeCamelCatalog) {
             answer = new ManagedRuntimeCamelCatalog(context, (RuntimeCamelCatalog) service);
+        } else if (service instanceof CamelClusterService) {
+            answer = getManagementObjectStrategy().getManagedObjectForClusterService(context, (CamelClusterService)service);
         } else if (service != null) {
             // fallback as generic service
             answer = getManagementObjectStrategy().getManagedObjectForService(context, service);
         }
 
-        if (answer != null && answer instanceof ManagedService) {
+        if (answer instanceof ManagedService) {
             ManagedService ms = (ManagedService) answer;
             ms.setRoute(route);
             ms.init(getManagementStrategy());

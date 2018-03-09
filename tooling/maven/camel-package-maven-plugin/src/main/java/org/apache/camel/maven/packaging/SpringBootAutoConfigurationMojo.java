@@ -416,6 +416,8 @@ public class SpringBootAutoConfigurationMojo extends AbstractMojo {
 
             if ("java.util.List<org.apache.camel.model.PropertyDefinition>".equalsIgnoreCase(type)) {
                 type = "java.util.Map<java.lang.String, java.lang.String>";
+            } else if ("java.util.List<org.apache.camel.model.rest.RestPropertyDefinition>".equalsIgnoreCase(type)) {
+                type = "java.util.Map<java.lang.String, java.lang.Object>";
             }
 
             if ("enableCORS".equalsIgnoreCase(name)) {
@@ -469,7 +471,9 @@ public class SpringBootAutoConfigurationMojo extends AbstractMojo {
 
         javaClass.addImport("java.util.Map");
         javaClass.addImport("java.util.HashMap");
+        javaClass.addImport("org.apache.camel.util.CollectionHelper");
         javaClass.addImport("org.apache.camel.util.IntrospectionSupport");
+        javaClass.addImport("org.apache.camel.spring.boot.util.CamelPropertiesHelper");
         javaClass.addImport("org.apache.camel.CamelContext");
         javaClass.addImport("org.apache.camel.model.rest.RestConstants");
         javaClass.addImport("org.apache.camel.spi.RestConfiguration");
@@ -500,14 +504,43 @@ public class SpringBootAutoConfigurationMojo extends AbstractMojo {
         method.setBody(""
             + "Map<String, Object> properties = new HashMap<>();\n"
             + "IntrospectionSupport.getProperties(config, properties, null, false);\n"
+            + "// These options is configured specially further below, so remove them first\n"
+            + "properties.remove(\"enableCors\");\n"
+            + "properties.remove(\"apiProperty\");\n"
+            + "properties.remove(\"componentProperty\");\n"
+            + "properties.remove(\"consumerProperty\");\n"
+            + "properties.remove(\"dataFormatProperty\");\n"
+            + "properties.remove(\"endpointProperty\");\n"
+            + "properties.remove(\"corsHeaders\");\n"
             + "\n"
             + "RestConfiguration definition = new RestConfiguration();\n"
-            + "IntrospectionSupport.setProperties(camelContext, camelContext.getTypeConverter(), definition, properties);\n"
+            + "CamelPropertiesHelper.setCamelProperties(camelContext, definition, properties, true);\n"
             + "\n"
             + "// Workaround for spring-boot properties name as It would appear\n"
             + "// as enable-c-o-r-s if left uppercase in Configuration\n"
             + "definition.setEnableCORS(config.getEnableCors());\n"
             + "\n"
+            + "if (config.getApiProperty() != null) {\n"
+            + "    definition.setApiProperties(new HashMap<>(CollectionHelper.flatternKeysInMap(config.getApiProperty(), \".\")));\n"
+            + "}\n"
+            + "if (config.getComponentProperty() != null) {\n"
+            + "    definition.setComponentProperties(new HashMap<>(CollectionHelper.flatternKeysInMap(config.getComponentProperty(), \".\")));\n"
+            + "}\n"
+            + "if (config.getConsumerProperty() != null) {\n"
+            + "    definition.setConsumerProperties(new HashMap<>(CollectionHelper.flatternKeysInMap(config.getConsumerProperty(), \".\")));\n"
+            + "}\n"
+            + "if (config.getDataFormatProperty() != null) {\n"
+            + "    definition.setDataFormatProperties(new HashMap<>(CollectionHelper.flatternKeysInMap(config.getDataFormatProperty(), \".\")));\n"
+            + "}\n"
+            + "if (config.getEndpointProperty() != null) {\n"
+            + "    definition.setEndpointProperties(new HashMap<>(CollectionHelper.flatternKeysInMap(config.getEndpointProperty(), \".\")));\n"
+            + "}\n"
+            + "if (config.getCorsHeaders() != null) {\n"
+            + "    Map<String, Object> map = CollectionHelper.flatternKeysInMap(config.getCorsHeaders(), \".\");\n"
+            + "    Map<String, String> target = new HashMap<>();\n"
+            + "    map.forEach((k, v) -> target.put(k, v.toString()));\n"
+            + "    definition.setCorsHeaders(target);\n"
+            + "}\n"
             + "return definition;"
         );
 
@@ -1204,6 +1237,7 @@ public class SpringBootAutoConfigurationMojo extends AbstractMojo {
         javaClass.addImport("org.apache.camel.spi.ComponentCustomizer");
         javaClass.addImport("org.apache.camel.spring.boot.CamelAutoConfiguration");
         javaClass.addImport("org.apache.camel.spring.boot.ComponentConfigurationProperties");
+        javaClass.addImport("org.apache.camel.spring.boot.util.CamelPropertiesHelper");
         javaClass.addImport("org.apache.camel.spring.boot.util.ConditionalOnCamelContextAndAutoConfigurationBeans");
         javaClass.addImport("org.apache.camel.spring.boot.util.GroupCondition");
         javaClass.addImport("org.apache.camel.spring.boot.util.HierarchicalPropertiesEvaluator");
@@ -1311,6 +1345,7 @@ public class SpringBootAutoConfigurationMojo extends AbstractMojo {
         javaClass.addImport("org.apache.camel.CamelContextAware");
         javaClass.addImport("org.apache.camel.spring.boot.CamelAutoConfiguration");
         javaClass.addImport("org.apache.camel.spring.boot.DataFormatConfigurationProperties");
+        javaClass.addImport("org.apache.camel.spring.boot.util.CamelPropertiesHelper");
         javaClass.addImport("org.apache.camel.spring.boot.util.ConditionalOnCamelContextAndAutoConfigurationBeans");
         javaClass.addImport("org.apache.camel.spring.boot.util.GroupCondition");
         javaClass.addImport("org.apache.camel.spring.boot.util.HierarchicalPropertiesEvaluator");
@@ -1423,6 +1458,7 @@ public class SpringBootAutoConfigurationMojo extends AbstractMojo {
         javaClass.addImport("org.apache.camel.CamelContextAware");
         javaClass.addImport("org.apache.camel.spring.boot.CamelAutoConfiguration");
         javaClass.addImport("org.apache.camel.spring.boot.LanguageConfigurationProperties");
+        javaClass.addImport("org.apache.camel.spring.boot.util.CamelPropertiesHelper");
         javaClass.addImport("org.apache.camel.spring.boot.util.ConditionalOnCamelContextAndAutoConfigurationBeans");
         javaClass.addImport("org.apache.camel.spring.boot.util.GroupCondition");
         javaClass.addImport("org.apache.camel.spring.boot.util.HierarchicalPropertiesEvaluator");
@@ -1541,14 +1577,14 @@ public class SpringBootAutoConfigurationMojo extends AbstractMojo {
         sb.append("            HashMap<String, Object> nestedParameters = new HashMap<>();\n");
         sb.append("            IntrospectionSupport.getProperties(value, nestedParameters, null, false);\n");
         sb.append("            Object nestedProperty = nestedClass.newInstance();\n");
-        sb.append("            IntrospectionSupport.setProperties(camelContext, camelContext.getTypeConverter(), nestedProperty, nestedParameters);\n");
+        sb.append("            CamelPropertiesHelper.setCamelProperties(camelContext, nestedProperty, nestedParameters, false);\n");
         sb.append("            entry.setValue(nestedProperty);\n");
         sb.append("        } catch (NoSuchFieldException e) {\n");
         sb.append("            // ignore, class must not be a nested configuration class after all\n");
         sb.append("        }\n");
         sb.append("    }\n");
         sb.append("}\n");
-        sb.append("IntrospectionSupport.setProperties(camelContext, camelContext.getTypeConverter(), component, parameters);\n");
+        sb.append("CamelPropertiesHelper.setCamelProperties(camelContext, component, parameters, false);\n");
         sb.append("\n");
         sb.append("if (ObjectHelper.isNotEmpty(customizers)) {\n");
         sb.append("    for (ComponentCustomizer<").append(shortJavaType).append("> customizer : customizers) {\n");
@@ -1592,7 +1628,7 @@ public class SpringBootAutoConfigurationMojo extends AbstractMojo {
         sb.append("        try {\n");
         sb.append("            Map<String, Object> parameters = new HashMap<>();\n");
         sb.append("            IntrospectionSupport.getProperties(configuration, parameters, null, false);\n");
-        sb.append("            IntrospectionSupport.setProperties(camelContext, camelContext.getTypeConverter(), dataformat, parameters);\n");
+        sb.append("            CamelPropertiesHelper.setCamelProperties(camelContext, dataformat, parameters, false);\n");
         sb.append("        } catch (Exception e) {\n");
         sb.append("            throw new RuntimeCamelException(e);\n");
         sb.append("        }\n");
@@ -1637,7 +1673,7 @@ public class SpringBootAutoConfigurationMojo extends AbstractMojo {
         sb.append("\n");
         sb.append("Map<String, Object> parameters = new HashMap<>();\n");
         sb.append("IntrospectionSupport.getProperties(configuration, parameters, null, false);\n");
-        sb.append("IntrospectionSupport.setProperties(camelContext, camelContext.getTypeConverter(), language, parameters);\n");
+        sb.append("CamelPropertiesHelper.setCamelProperties(camelContext, language, parameters, false);\n");
         sb.append("\n");
         sb.append("\n");
         sb.append("if (ObjectHelper.isNotEmpty(customizers)) {\n");
@@ -1791,6 +1827,7 @@ public class SpringBootAutoConfigurationMojo extends AbstractMojo {
         component.setFirstVersion(JSonSchemaHelper.getSafeValue("firstVersion", rows));
         component.setLabel(getSafeValue("label", rows));
         component.setDeprecated(getSafeValue("deprecated", rows));
+        component.setDeprecationNote(getSafeValue("deprecationNote", rows));
         component.setConsumerOnly(getSafeValue("consumerOnly", rows));
         component.setProducerOnly(getSafeValue("producerOnly", rows));
         component.setJavaType(getSafeValue("javaType", rows));
@@ -1807,6 +1844,7 @@ public class SpringBootAutoConfigurationMojo extends AbstractMojo {
             option.setType(getSafeValue("type", row));
             option.setJavaType(getSafeValue("javaType", row));
             option.setDeprecated(getSafeValue("deprecated", row));
+            option.setDeprecationNote(getSafeValue("deprecationNote", row));
             option.setDescription(getSafeValue("description", row));
             option.setDefaultValue(getSafeValue("defaultValue", row));
             option.setEnums(getSafeValue("enum", row));
@@ -1827,6 +1865,7 @@ public class SpringBootAutoConfigurationMojo extends AbstractMojo {
             option.setPrefix(getSafeValue("prefix", row));
             option.setMultiValue(getSafeValue("multiValue", row));
             option.setDeprecated(getSafeValue("deprecated", row));
+            option.setDeprecationNote(getSafeValue("deprecationNote", row));
             option.setDefaultValue(getSafeValue("defaultValue", row));
             option.setDescription(getSafeValue("description", row));
             option.setEnumValues(getSafeValue("enum", row));
@@ -1847,6 +1886,7 @@ public class SpringBootAutoConfigurationMojo extends AbstractMojo {
         dataFormat.setFirstVersion(JSonSchemaHelper.getSafeValue("firstVersion", rows));
         dataFormat.setLabel(getSafeValue("label", rows));
         dataFormat.setDeprecated(getSafeValue("deprecated", rows));
+        dataFormat.setDeprecationNote(getSafeValue("deprecationNote", rows));
         dataFormat.setJavaType(getSafeValue("javaType", rows));
         dataFormat.setGroupId(getSafeValue("groupId", rows));
         dataFormat.setArtifactId(getSafeValue("artifactId", rows));
@@ -1861,6 +1901,7 @@ public class SpringBootAutoConfigurationMojo extends AbstractMojo {
             option.setType(getSafeValue("type", row));
             option.setJavaType(getSafeValue("javaType", row));
             option.setDeprecated(getSafeValue("deprecated", row));
+            option.setDeprecationNote(getSafeValue("deprecationNote", row));
             option.setDescription(getSafeValue("description", row));
             option.setDefaultValue(getSafeValue("defaultValue", row));
             option.setEnumValues(getSafeValue("enum", row));
@@ -1881,6 +1922,7 @@ public class SpringBootAutoConfigurationMojo extends AbstractMojo {
         language.setFirstVersion(JSonSchemaHelper.getSafeValue("firstVersion", rows));
         language.setLabel(getSafeValue("label", rows));
         language.setDeprecated(getSafeValue("deprecated", rows));
+        language.setDeprecationNote(getSafeValue("deprecationNote", rows));
         language.setJavaType(getSafeValue("javaType", rows));
         language.setGroupId(getSafeValue("groupId", rows));
         language.setArtifactId(getSafeValue("artifactId", rows));
@@ -1895,6 +1937,7 @@ public class SpringBootAutoConfigurationMojo extends AbstractMojo {
             option.setType(getSafeValue("type", row));
             option.setJavaType(getSafeValue("javaType", row));
             option.setDeprecated(getSafeValue("deprecated", row));
+            option.setDeprecationNote(getSafeValue("deprecationNote", row));
             option.setDescription(getSafeValue("description", row));
             option.setDefaultValue(getSafeValue("defaultValue", row));
             option.setEnumValues(getSafeValue("enum", row));
@@ -1914,6 +1957,7 @@ public class SpringBootAutoConfigurationMojo extends AbstractMojo {
         model.setJavaType(getSafeValue("javaType", rows));
         model.setLabel(getSafeValue("label", rows));
         model.setDeprecated(getSafeValue("deprecated", rows));
+        model.setDeprecationNote(getSafeValue("deprecationNote", rows));
 
         rows = parseJsonSchema("properties", json, true);
         for (Map<String, String> row : rows) {
@@ -1927,6 +1971,7 @@ public class SpringBootAutoConfigurationMojo extends AbstractMojo {
             option.setJavaType(getSafeValue("javaType", row));
             option.setEnums(getSafeValue("enum", row));
             option.setDeprecated(getSafeValue("deprecated", row));
+            option.setDeprecationNote(getSafeValue("deprecationNote", row));
             option.setDefaultValue(getSafeValue("defaultValue", row));
             option.setDescription(getSafeValue("description", row));
             option.setEnums(getSafeValue("enums", row));

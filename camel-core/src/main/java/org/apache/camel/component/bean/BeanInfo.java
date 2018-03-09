@@ -26,11 +26,9 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 
 import org.apache.camel.AttachmentObjects;
 import org.apache.camel.Attachments;
@@ -306,43 +304,41 @@ public class BeanInfo {
      * @param clazz the class
      */
     private void introspect(Class<?> clazz) {
-        // get the target clazz as it could potentially have been enhanced by CGLIB etc.
-        clazz = getTargetClass(clazz);
-        ObjectHelper.notNull(clazz, "clazz", this);
-
-        LOG.trace("Introspecting class: {}", clazz);
 
         // does the class have any public constructors?
         publicConstructors = clazz.getConstructors().length > 0;
 
-        // favor declared methods, and then filter out duplicate interface methods
-        List<Method> methods;
-        if (Modifier.isPublic(clazz.getModifiers())) {
-            LOG.trace("Preferring class methods as class: {} is public accessible", clazz);
-            methods = new ArrayList<Method>(Arrays.asList(clazz.getDeclaredMethods()));
-        } else {
-            LOG.trace("Preferring interface methods as class: {} is not public accessible", clazz);
-            methods = getInterfaceMethods(clazz);
-            // and then we must add its declared methods as well
-            List<Method> extraMethods = Arrays.asList(clazz.getDeclaredMethods());
-            methods.addAll(extraMethods);
-        }
+        MethodsFilter methods = new MethodsFilter(getType());
+        introspect(clazz, methods);
 
         // now introspect the methods and filter non valid methods
-        for (Method method : methods) {
+        for (Method method : methods.asReadOnlyList()) {
             boolean valid = isValidMethod(clazz, method);
             LOG.trace("Method: {} is valid: {}", method, valid);
             if (valid) {
                 introspect(clazz, method);
             }
         }
+    }
+
+    private void introspect(Class<?> clazz, MethodsFilter filteredMethods) {
+        // get the target clazz as it could potentially have been enhanced by
+        // CGLIB etc.
+        clazz = getTargetClass(clazz);
+        ObjectHelper.notNull(clazz, "clazz", this);
+
+        LOG.trace("Introspecting class: {}", clazz);
+
+        for (Method m : Arrays.asList(clazz.getDeclaredMethods())) {
+            filteredMethods.filterMethod(m);
+        }
 
         Class<?> superClass = clazz.getSuperclass();
         if (superClass != null && !superClass.equals(Object.class)) {
-            introspect(superClass);
+            introspect(superClass, filteredMethods);
         }
         for (Class<?> superInterface : clazz.getInterfaces()) {
-            introspect(superInterface);
+            introspect(superInterface, filteredMethods);
         }
     }
 
@@ -405,9 +401,10 @@ public class BeanInfo {
         MethodInfo answer = methodMap.get(method);
         if (answer == null) {
             // maybe the method overrides, and the method map keeps info of the source override we can use
-            for (Method source : methodMap.keySet()) {
+            for (Map.Entry<Method, MethodInfo> methodEntry : methodMap.entrySet()) {
+                Method source = methodEntry.getKey();
                 if (ObjectHelper.isOverridingMethod(getType(), source, method, false)) {
-                    answer = methodMap.get(source);
+                    answer = methodEntry.getValue();
                     break;
                 }
             }
@@ -1007,19 +1004,6 @@ public class BeanInfo {
         }
 
         return null;
-    }
-    
-    private static List<Method> getInterfaceMethods(Class<?> clazz) {
-        final List<Method> answer = new ArrayList<Method>();
-
-        while (clazz != null && !clazz.equals(Object.class)) {
-            for (Class<?> interfaceClazz : clazz.getInterfaces()) {
-                Collections.addAll(answer, interfaceClazz.getDeclaredMethods());
-            }
-            clazz = clazz.getSuperclass();
-        }
-
-        return answer;
     }
 
     private static void removeAllSetterOrGetterMethods(List<MethodInfo> methods) {

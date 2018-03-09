@@ -38,7 +38,7 @@ import org.apache.camel.spi.RouteContext;
 import org.apache.camel.spi.RuntimeEndpointRegistry;
 import org.apache.camel.spi.UnitOfWork;
 import org.apache.camel.support.EventNotifierSupport;
-import org.apache.camel.util.LRUCache;
+import org.apache.camel.util.LRUCacheFactory;
 import org.apache.camel.util.ObjectHelper;
 import org.apache.camel.util.ServiceHelper;
 
@@ -211,6 +211,7 @@ public class DefaultRuntimeEndpointRegistry extends EventNotifierSupport impleme
     }
 
     @Override
+    @SuppressWarnings("unchecked")
     public void notify(EventObject event) throws Exception {
         if (event instanceof RouteAddedEvent) {
             RouteAddedEvent rse = (RouteAddedEvent) event;
@@ -223,7 +224,7 @@ public class DefaultRuntimeEndpointRegistry extends EventNotifierSupport impleme
             inputs.put(routeId, uris);
             // use a LRUCache for outputs as we could potential have unlimited uris if dynamic routing is in use
             // and therefore need to have the limit in use
-            outputs.put(routeId, new LRUCache<String, String>(limit));
+            outputs.put(routeId, LRUCacheFactory.newLRUCache(limit));
         } else if (event instanceof RouteRemovedEvent) {
             RouteRemovedEvent rse = (RouteRemovedEvent) event;
             String routeId = rse.getRoute().getId();

@@ -50,6 +50,7 @@ import org.apache.camel.spi.TypeConverterLoader;
 import org.apache.camel.spi.TypeConverterRegistry;
 import org.apache.camel.support.ServiceSupport;
 import org.apache.camel.util.CamelLogger;
+import org.apache.camel.util.LRUCacheFactory;
 import org.apache.camel.util.LRUSoftCache;
 import org.apache.camel.util.MessageHelper;
 import org.apache.camel.util.ObjectHelper;
@@ -67,7 +68,8 @@ public abstract class BaseTypeConverterRegistry extends ServiceSupport implement
     protected final OptimisedTypeConverter optimisedTypeConverter = new OptimisedTypeConverter();
     protected final ConcurrentMap<TypeMapping, TypeConverter> typeMappings = new ConcurrentHashMap<TypeMapping, TypeConverter>();
     // for misses use a soft reference cache map, as the classes may be un-deployed at runtime
-    protected final LRUSoftCache<TypeMapping, TypeMapping> misses = new LRUSoftCache<TypeMapping, TypeMapping>(1000);
+    @SuppressWarnings("unchecked")
+    protected final LRUSoftCache<TypeMapping, TypeMapping> misses = LRUCacheFactory.newLRUSoftCache(1000);
     protected final List<TypeConverterLoader> typeConverterLoaders = new ArrayList<TypeConverterLoader>();
     protected final List<FallbackTypeConverter> fallbackConverters = new CopyOnWriteArrayList<FallbackTypeConverter>();
     protected final PackageScanClassResolver resolver;
@@ -80,7 +82,7 @@ public abstract class BaseTypeConverterRegistry extends ServiceSupport implement
     protected final LongAdder noopCounter = new LongAdder();
     protected final LongAdder attemptCounter = new LongAdder();
     protected final LongAdder missCounter = new LongAdder();
-    protected final LongAdder coreHitCounter = new LongAdder();
+    protected final LongAdder baseHitCounter = new LongAdder();
     protected final LongAdder hitCounter = new LongAdder();
     protected final LongAdder failedCounter = new LongAdder();
 
@@ -298,7 +300,7 @@ public abstract class BaseTypeConverterRegistry extends ServiceSupport implement
         Object result = optimisedTypeConverter.convertTo(type, exchange, value);
         if (result != null) {
             if (statistics.isStatisticsEnabled()) {
-                coreHitCounter.increment();
+                baseHitCounter.increment();
             }
             if (log.isTraceEnabled()) {
                 log.trace("Using optimised core converter to convert: {} -> {}", type, value.getClass().getCanonicalName());
@@ -733,8 +735,8 @@ public abstract class BaseTypeConverterRegistry extends ServiceSupport implement
         }
 
         @Override
-        public long getCoreHitCounter() {
-            return coreHitCounter.longValue();
+        public long getBaseHitCounter() {
+            return baseHitCounter.longValue();
         }
 
         @Override
@@ -752,7 +754,7 @@ public abstract class BaseTypeConverterRegistry extends ServiceSupport implement
             noopCounter.reset();
             attemptCounter.reset();
             hitCounter.reset();
-            coreHitCounter.reset();
+            baseHitCounter.reset();
             missCounter.reset();
             failedCounter.reset();
         }
@@ -769,8 +771,8 @@ public abstract class BaseTypeConverterRegistry extends ServiceSupport implement
 
         @Override
         public String toString() {
-            return String.format("TypeConverterRegistry utilization[noop=%s, attempts=%s, hits=%s, coreHits=%s, misses=%s, failures=%s]",
-                    getNoopCounter(), getAttemptCounter(), getHitCounter(), getCoreHitCounter(), getMissCounter(), getFailedCounter());
+            return String.format("TypeConverterRegistry utilization[noop=%s, attempts=%s, hits=%s, baseHits=%s, misses=%s, failures=%s]",
+                    getNoopCounter(), getAttemptCounter(), getHitCounter(), getBaseHitCounter(), getMissCounter(), getFailedCounter());
         }
     }
 

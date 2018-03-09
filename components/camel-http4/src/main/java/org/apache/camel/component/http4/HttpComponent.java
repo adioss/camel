@@ -32,6 +32,7 @@ import org.apache.camel.Producer;
 import org.apache.camel.ResolveEndpointFailedException;
 import org.apache.camel.SSLContextParametersAware;
 import org.apache.camel.VerifiableComponent;
+import org.apache.camel.component.extension.ComponentVerifierExtension;
 import org.apache.camel.http.common.HttpBinding;
 import org.apache.camel.http.common.HttpCommonComponent;
 import org.apache.camel.http.common.HttpHelper;
@@ -93,6 +94,24 @@ public class HttpComponent extends HttpCommonComponent implements RestProducerFa
         + " shouldn't be stored as we are just bridging (eg acting as a proxy).")
     protected CookieStore cookieStore;
 
+    // timeout
+    @Metadata(label = "timeout", defaultValue = "-1", description = "The timeout in milliseconds used when requesting a connection"
+        + " from the connection manager. A timeout value of zero is interpreted as an infinite timeout."
+        + " A timeout value of zero is interpreted as an infinite timeout."
+        + " A negative value is interpreted as undefined (system default).")
+    protected int connectionRequestTimeout = -1;
+    @Metadata(label = "timeout", defaultValue = "-1", description = "Determines the timeout in milliseconds until a connection is established."
+        + " A timeout value of zero is interpreted as an infinite timeout."
+        + " A timeout value of zero is interpreted as an infinite timeout."
+        + " A negative value is interpreted as undefined (system default).")
+    protected int connectTimeout = -1;
+    @Metadata(label = "timeout", defaultValue = "-1", description = "Defines the socket timeout in milliseconds,"
+        + " which is the timeout for waiting for data  or, put differently,"
+        + " a maximum period inactivity between two consecutive data packets)."
+        + " A timeout value of zero is interpreted as an infinite timeout."
+        + " A negative value is interpreted as undefined (system default).")
+    protected int socketTimeout = -1;
+
     // options to the default created http connection manager
     @Metadata(label = "advanced", defaultValue = "200", description = "The maximum number of connections.")
     protected int maxTotalConnections = 200;
@@ -105,11 +124,13 @@ public class HttpComponent extends HttpCommonComponent implements RestProducerFa
     private boolean useGlobalSslContextParameters;
 
     public HttpComponent() {
-        super(HttpEndpoint.class);
+        this(HttpEndpoint.class);
     }
 
     public HttpComponent(Class<? extends HttpEndpoint> endpointClass) {
         super(endpointClass);
+
+        registerExtension(HttpComponentVerifierExtension::new);
     }
 
     /**
@@ -178,6 +199,21 @@ public class HttpComponent extends HttpCommonComponent implements RestProducerFa
     protected Endpoint createEndpoint(String uri, String remaining, Map<String, Object> parameters) throws Exception {
         Map<String, Object> httpClientParameters = new HashMap<String, Object>(parameters);
         final Map<String, Object> httpClientOptions = new HashMap<>();
+
+        // timeout values can be configured on both component and endpoint level, where endpoint take priority
+        int val = getAndRemoveParameter(parameters, "connectionRequestTimeout", int.class, connectionRequestTimeout);
+        if (val != -1) {
+            httpClientOptions.put("connectionRequestTimeout", val);
+        }
+        val = getAndRemoveParameter(parameters, "connectTimeout", int.class, connectTimeout);
+        if (val != -1) {
+            httpClientOptions.put("connectTimeout", val);
+        }
+        val = getAndRemoveParameter(parameters, "socketTimeout", int.class, socketTimeout);
+        if (val != -1) {
+            httpClientOptions.put("socketTimeout", val);
+        }
+
         final HttpClientBuilder clientBuilder = createHttpClientBuilder(uri, parameters, httpClientOptions);
         
         HttpBinding httpBinding = resolveAndRemoveReferenceParameter(parameters, "httpBinding", HttpBinding.class);
@@ -253,9 +289,6 @@ public class HttpComponent extends HttpCommonComponent implements RestProducerFa
 
         // configure the endpoint
         setProperties(endpoint, parameters);
-
-        // determine the portnumber (special case: default portnumber)
-        //int port = getPort(uriHttpUriAddress);
 
         // we can not change the port of an URI, we must create a new one with an explicit port value
         URI httpUri = URISupport.createRemainingURI(
@@ -389,7 +422,7 @@ public class HttpComponent extends HttpCommonComponent implements RestProducerFa
         uriTemplate = FileUtil.stripLeadingSeparator(uriTemplate);
 
         // replace http with http4 in the host part
-        host = host.replace("http", "http4");
+        host = host.replaceFirst(":", "4:");
 
         // get the endpoint
         String url = host;
@@ -532,6 +565,65 @@ public class HttpComponent extends HttpCommonComponent implements RestProducerFa
         this.cookieStore = cookieStore;
     }
 
+    public int getConnectionRequestTimeout() {
+        return connectionRequestTimeout;
+    }
+
+    /**
+     * The timeout in milliseconds used when requesting a connection
+     * from the connection manager. A timeout value of zero is interpreted
+     * as an infinite timeout.
+     * <p>
+     * A timeout value of zero is interpreted as an infinite timeout.
+     * A negative value is interpreted as undefined (system default).
+     * </p>
+     * <p>
+     * Default: {@code -1}
+     * </p>
+     */
+    public void setConnectionRequestTimeout(int connectionRequestTimeout) {
+        this.connectionRequestTimeout = connectionRequestTimeout;
+    }
+
+    public int getConnectTimeout() {
+        return connectTimeout;
+    }
+
+    /**
+     * Determines the timeout in milliseconds until a connection is established.
+     * A timeout value of zero is interpreted as an infinite timeout.
+     * <p>
+     * A timeout value of zero is interpreted as an infinite timeout.
+     * A negative value is interpreted as undefined (system default).
+     * </p>
+     * <p>
+     * Default: {@code -1}
+     * </p>
+     */
+    public void setConnectTimeout(int connectTimeout) {
+        this.connectTimeout = connectTimeout;
+    }
+
+    public int getSocketTimeout() {
+        return socketTimeout;
+    }
+
+    /**
+     * Defines the socket timeout ({@code SO_TIMEOUT}) in milliseconds,
+     * which is the timeout for waiting for data  or, put differently,
+     * a maximum period inactivity between two consecutive data packets).
+     * <p>
+     * A timeout value of zero is interpreted as an infinite timeout.
+     * A negative value is interpreted as undefined (system default).
+     * </p>
+     * <p>
+     * Default: {@code -1}
+     * </p>
+     */
+    public void setSocketTimeout(int socketTimeout) {
+        this.socketTimeout = socketTimeout;
+    }
+
     @Override
     public void doStart() throws Exception {
         super.doStart();
@@ -549,10 +641,8 @@ public class HttpComponent extends HttpCommonComponent implements RestProducerFa
         super.doStop();
     }
 
-    /**
-     * TODO: document
-     */
+    @Override
     public ComponentVerifier getVerifier() {
-        return new HttpComponentVerifier(this);
+        return (scope, parameters) -> getExtension(ComponentVerifierExtension.class).orElseThrow(UnsupportedOperationException::new).verify(scope, parameters);
     }
 }

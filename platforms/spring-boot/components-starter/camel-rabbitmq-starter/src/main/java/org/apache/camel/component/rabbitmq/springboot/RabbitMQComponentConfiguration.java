@@ -17,8 +17,10 @@
 package org.apache.camel.component.rabbitmq.springboot;
 
 import javax.annotation.Generated;
+import com.rabbitmq.client.ConnectionFactory;
 import org.apache.camel.spring.boot.ComponentConfigurationPropertiesCommon;
 import org.springframework.boot.context.properties.ConfigurationProperties;
+import org.springframework.boot.context.properties.NestedConfigurationProperty;
 
 /**
  * The rabbitmq component allows you produce and consume messages from RabbitMQ
@@ -33,11 +35,90 @@ public class RabbitMQComponentConfiguration
             ComponentConfigurationPropertiesCommon {
 
     /**
+     * The hostname of the running rabbitmq instance or cluster.
+     */
+    private String hostname;
+    /**
+     * Port number for the host with the running rabbitmq instance or cluster.
+     */
+    private Integer portNumber = 5672;
+    /**
+     * Username in case of authenticated access
+     */
+    private String username = "guest";
+    /**
+     * Password for authenticated access
+     */
+    private String password = "guest";
+    /**
+     * To use a custom RabbitMQ connection factory. When this option is set, all
+     * connection options (connectionTimeout, requestedChannelMax...) set on URI
+     * are not used
+     */
+    @NestedConfigurationProperty
+    private ConnectionFactory connectionFactory;
+    /**
+     * Whether to auto-detect looking up RabbitMQ connection factory from the
+     * registry. When enabled and a single instance of the connection factory is
+     * found then it will be used. An explicit connection factory can be
+     * configured on the component or endpoint level which takes precedence.
+     */
+    private Boolean autoDetectConnectionFactory = true;
+    /**
      * Whether the component should resolve property placeholders on itself when
      * starting. Only properties which are of String type can use property
      * placeholders.
      */
     private Boolean resolvePropertyPlaceholders = true;
+
+    public String getHostname() {
+        return hostname;
+    }
+
+    public void setHostname(String hostname) {
+        this.hostname = hostname;
+    }
+
+    public Integer getPortNumber() {
+        return portNumber;
+    }
+
+    public void setPortNumber(Integer portNumber) {
+        this.portNumber = portNumber;
+    }
+
+    public String getUsername() {
+        return username;
+    }
+
+    public void setUsername(String username) {
+        this.username = username;
+    }
+
+    public String getPassword() {
+        return password;
+    }
+
+    public void setPassword(String password) {
+        this.password = password;
+    }
+
+    public ConnectionFactory getConnectionFactory() {
+        return connectionFactory;
+    }
+
+    public void setConnectionFactory(ConnectionFactory connectionFactory) {
+        this.connectionFactory = connectionFactory;
+    }
+
+    public Boolean getAutoDetectConnectionFactory() {
+        return autoDetectConnectionFactory;
+    }
+
+    public void setAutoDetectConnectionFactory(
+            Boolean autoDetectConnectionFactory) {
+        this.autoDetectConnectionFactory = autoDetectConnectionFactory;
+    }
 
     public Boolean getResolvePropertyPlaceholders() {
         return resolvePropertyPlaceholders;

@@ -17,88 +17,86 @@
 package org.apache.camel.spring.boot.actuate.endpoint;
 
 import java.util.List;
+import java.util.Optional;
+import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
-
-import com.fasterxml.jackson.annotation.JsonInclude;
-import com.fasterxml.jackson.annotation.JsonPropertyOrder;
 
 import org.apache.camel.CamelContext;
 import org.apache.camel.Route;
-import org.apache.camel.StatefulService;
-import org.apache.camel.spring.boot.actuate.endpoint.CamelRoutesEndpoint.RouteEndpointInfo;
-import org.springframework.boot.actuate.endpoint.AbstractEndpoint;
+import org.apache.camel.api.management.mbean.ManagedRouteMBean;
+import org.apache.camel.spring.boot.model.RouteDetailsInfo;
+import org.apache.camel.spring.boot.model.RouteInfo;
 import org.springframework.boot.actuate.endpoint.Endpoint;
+import org.springframework.boot.context.properties.ConfigurationProperties;
 
 /**
  * {@link Endpoint} to expose {@link org.apache.camel.Route} information.
  */
-public class CamelRoutesEndpoint extends AbstractEndpoint<List<RouteEndpointInfo>> {
-
-    private static final String ENDPOINT_ID = "camelroutes";
-
-    private CamelContext camelContext;
+@ConfigurationProperties(prefix = "endpoints." + CamelRoutesEndpoint.ENDPOINT_ID)
+public class CamelRoutesEndpoint extends AbstractCamelEndpoint<List<RouteInfo>> {
+    public static final String ENDPOINT_ID = "camelroutes";
 
     public CamelRoutesEndpoint(CamelContext camelContext) {
-        super(ENDPOINT_ID);
-        this.camelContext = camelContext;
+        super(ENDPOINT_ID, camelContext);
     }
 
     @Override
-    public List<RouteEndpointInfo> invoke() {
-        // @formatter:off
-        return camelContext.getRoutes().stream()
-                .map(RouteEndpointInfo::new)
-                .collect(Collectors.toList());
-        // @formatter:on
+    public List<RouteInfo> invoke() {
+        return getRoutesInfo();
     }
 
-    /**
-     * Container for exposing {@link org.apache.camel.Route} information as JSON.
-     */
-    @JsonPropertyOrder({"id", "description", "uptime", "uptimeMillis"})
-    @JsonInclude(JsonInclude.Include.NON_EMPTY)
-    public static class RouteEndpointInfo {
-
-        private final String id;
-
-        private final String description;
-
-        private final String uptime;
-
-        private final long uptimeMillis;
-
-        private String status;
-
-        public RouteEndpointInfo(Route route) {
-            this.id = route.getId();
-            this.description = route.getDescription();
-            this.uptime = route.getUptime();
-            this.uptimeMillis = route.getUptimeMillis();
-
-            if (route instanceof StatefulService) {
-                this.status = ((StatefulService) route).getStatus().name();
-            }
+    public RouteInfo getRouteInfo(String id) {
+        Route route = getCamelContext().getRoute(id);
+        if (route != null) {
+            return new RouteInfo(route);
         }
 
-        public String getId() {
-            return id;
+        return null;
+    }
+
+    public List<RouteInfo> getRoutesInfo() {
+        return getCamelContext().getRoutes().stream()
+            .map(RouteInfo::new)
+            .collect(Collectors.toList());
+    }
+
+    public RouteDetailsInfo getRouteDetailsInfo(String id) {
+        Route route = getCamelContext().getRoute(id);
+        if (route != null) {
+            return new RouteDetailsInfo(getCamelContext(), route);
         }
 
-        public String getDescription() {
-            return description;
-        }
+        return null;
+    }
 
-        public String getUptime() {
-            return uptime;
-        }
+    public void startRoute(String id) throws Exception {
+        getCamelContext().getRouteController().startRoute(id);
+    }
 
-        public long getUptimeMillis() {
-            return uptimeMillis;
-        }
+    public void resetRoute(String id) throws Exception {
+        ManagedRouteMBean managedRouteMBean = getCamelContext().getManagedRoute(id, ManagedRouteMBean.class);
+        if (managedRouteMBean != null) {
+            managedRouteMBean.reset(true);
+        } 
+    }
 
-        public String getStatus() {
-            return status;
+    public void stopRoute(String id, Optional<Long> timeout, Optional<TimeUnit> timeUnit, Optional<Boolean> abortAfterTimeout) throws Exception {
+        if (timeout.isPresent()) {
+            getCamelContext().getRouteController().stopRoute(id, timeout.get(), timeUnit.orElse(TimeUnit.SECONDS), abortAfterTimeout.orElse(Boolean.TRUE));
+        } else {
+            getCamelContext().getRouteController().stopRoute(id);
         }
     }
 
+    public void suspendRoute(String id, Optional<Long> timeout, Optional<TimeUnit> timeUnit) throws Exception {
+        if (timeout.isPresent()) {
+            getCamelContext().getRouteController().suspendRoute(id, timeout.get(), timeUnit.orElse(TimeUnit.SECONDS));
+        } else {
+            getCamelContext().getRouteController().suspendRoute(id);
+        }
+    }
+
+    public void resumeRoute(String id) throws Exception {
+        getCamelContext().getRouteController().resumeRoute(id);
+    }
 }

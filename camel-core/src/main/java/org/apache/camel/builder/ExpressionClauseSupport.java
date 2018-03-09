@@ -79,7 +79,10 @@ public class ExpressionClauseSupport<T> {
     }
 
     /**
-     * Specify the constant expression value
+     * Specify the constant expression value.
+     *
+     * <b>Important:</b> this is a fixed constant value that is only set once during starting up the route,
+     * do not use this if you want dynamic values during routing.
      */
     public T constant(Object value) {
         if (value instanceof String) {
@@ -425,6 +428,89 @@ public class ExpressionClauseSupport<T> {
         expression.setResultType(resultType);
         setExpressionType(expression);
         return result;
+    }
+
+    /**
+     * Evaluates a <a href="http://camel.apache.org/jsonpath.html">Json Path
+     * expression</a>
+     *
+     * @param text the expression to be evaluated
+     * @param suppressExceptions whether to suppress exceptions such as PathNotFoundException
+     * @param allowSimple whether to allow in inlined simple exceptions in the json path expression
+     * @param resultType the return type expected by the expression
+     * @param headerName the name of the header to apply the expression to
+     * @return the builder to continue processing the DSL
+     */
+    public T jsonpath(String text, boolean suppressExceptions, boolean allowSimple, Class<?> resultType, String headerName) {
+        JsonPathExpression expression = new JsonPathExpression(text);
+        expression.setSuppressExceptions(suppressExceptions);
+        expression.setAllowSimple(allowSimple);
+        expression.setResultType(resultType);
+        expression.setHeaderName(headerName);
+        setExpressionType(expression);
+        return result;
+    }
+
+    /**
+     * Evaluates a <a href="http://camel.apache.org/jsonpath.html">Json Path
+     * expression</a> with writeAsString enabled.
+     *
+     * @param text the expression to be evaluated
+     * @return the builder to continue processing the DSL
+     */
+    public T jsonpathWriteAsString(String text) {
+        return jsonpathWriteAsString(text, false);
+    }
+
+    /**
+     * Evaluates a <a href="http://camel.apache.org/jsonpath.html">Json Path
+     * expression</a> with writeAsString enabled.
+     *
+     * @param text the expression to be evaluated
+     * @param suppressExceptions whether to suppress exceptions such as PathNotFoundException
+     * @return the builder to continue processing the DSL
+     */
+    public T jsonpathWriteAsString(String text, boolean suppressExceptions) {
+        JsonPathExpression expression = new JsonPathExpression(text);
+        expression.setWriteAsString(true);
+        expression.setSuppressExceptions(suppressExceptions);
+        return expression(expression);
+    }
+
+    /**
+     * Evaluates a <a href="http://camel.apache.org/jsonpath.html">Json Path
+     * expression</a> with writeAsString enabled.
+     *
+     * @param text the expression to be evaluated
+     * @param suppressExceptions whether to suppress exceptions such as PathNotFoundException
+     * @param allowSimple whether to allow in inlined simple exceptions in the json path expression
+     * @return the builder to continue processing the DSL
+     */
+    public T jsonpathWriteAsString(String text, boolean suppressExceptions, boolean allowSimple) {
+        JsonPathExpression expression = new JsonPathExpression(text);
+        expression.setWriteAsString(true);
+        expression.setSuppressExceptions(suppressExceptions);
+        expression.setAllowSimple(allowSimple);
+        return expression(expression);
+    }
+
+    /**
+     * Evaluates a <a href="http://camel.apache.org/jsonpath.html">Json Path
+     * expression</a> with writeAsString enabled.
+     *
+     * @param text the expression to be evaluated
+     * @param suppressExceptions whether to suppress exceptions such as PathNotFoundException
+     * @param allowSimple whether to allow in inlined simple exceptions in the json path expression
+     * @param headerName the name of the header to apply the expression to
+     * @return the builder to continue processing the DSL
+     */
+    public T jsonpathWriteAsString(String text, boolean suppressExceptions, boolean allowSimple, String headerName) {
+        JsonPathExpression expression = new JsonPathExpression(text);
+        expression.setWriteAsString(true);
+        expression.setSuppressExceptions(suppressExceptions);
+        expression.setAllowSimple(allowSimple);
+        expression.setHeaderName(headerName);
+        return expression(expression);
     }
 
     /**

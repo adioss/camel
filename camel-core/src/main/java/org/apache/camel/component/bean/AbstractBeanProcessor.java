@@ -45,7 +45,6 @@ public abstract class AbstractBeanProcessor implements AsyncProcessor {
     private String method;
     private boolean shorthandMethod;
 
-
     public AbstractBeanProcessor(Object pojo, BeanInfo beanInfo) {
         this(new ConstantBeanHolder(pojo, beanInfo));
     }
@@ -119,7 +118,7 @@ public abstract class AbstractBeanProcessor implements AsyncProcessor {
 
         // is the message proxied using a BeanInvocation?
         BeanInvocation beanInvoke = null;
-        if (in.getBody() != null && in.getBody() instanceof BeanInvocation) {
+        if (in.getBody() instanceof BeanInvocation) {
             // BeanInvocation would be stored directly as the message body
             // do not force any type conversion attempts as it would just be unnecessary and cost a bit performance
             // so a regular instanceof check is sufficient

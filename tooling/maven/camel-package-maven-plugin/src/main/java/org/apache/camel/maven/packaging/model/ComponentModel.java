@@ -35,6 +35,7 @@ public class ComponentModel {
     private String firstVersion;
     private String label;
     private String deprecated;
+    private String deprecationNote;
     private String consumerOnly;
     private String producerOnly;
     private String javaType;
@@ -127,6 +128,14 @@ public class ComponentModel {
 
     public void setDeprecated(String deprecated) {
         this.deprecated = deprecated;
+    }
+
+    public String getDeprecationNote() {
+        return deprecationNote;
+    }
+
+    public void setDeprecationNote(String deprecationNote) {
+        this.deprecationNote = deprecationNote;
     }
 
     public String getConsumerOnly() {
@@ -229,6 +238,8 @@ public class ComponentModel {
             return "camel-olingo4/camel-olingo4-component/src/main/docs";
         } else if ("camel-salesforce".equals(artifactId)) {
             return "camel-salesforce/camel-salesforce-component/src/main/docs";
+        } else if ("camel-servicenow".equals(artifactId)) {
+            return "camel-servicenow/camel-servicenow-component/src/main/docs";
         }
 
         if ("camel-core".equals(artifactId)) {

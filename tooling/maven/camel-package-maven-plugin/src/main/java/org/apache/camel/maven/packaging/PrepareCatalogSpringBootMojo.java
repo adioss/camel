@@ -142,12 +142,6 @@ public class PrepareCatalogSpringBootMojo extends AbstractMojo {
             File[] components = componentsDir.listFiles();
             if (components != null) {
                 for (File dir : components) {
-                    // skip camel-spring-dm
-                    if (dir.isDirectory() && "camel-spring-dm".equals(dir.getName())) {
-                        continue;
-                    }
-
-
                     if (dir.isDirectory() && !"target".equals(dir.getName())) {
                         File target = new File(dir, "target/classes");
 
@@ -161,6 +155,8 @@ public class PrepareCatalogSpringBootMojo extends AbstractMojo {
                             target = new File(dir, "camel-salesforce-component/target/classes");
                         } else if ("camel-linkedin".equals(dir.getName())) {
                             target = new File(dir, "camel-linkedin-component/target/classes");
+                        } else if ("camel-servicenow".equals(dir.getName())) {
+                            target = new File(dir, "camel-servicenow-component/target/classes");
                         }
 
 
@@ -241,10 +237,6 @@ public class PrepareCatalogSpringBootMojo extends AbstractMojo {
             if (dataFormats != null) {
                 for (File dir : dataFormats) {
                     if (dir.isDirectory() && !"target".equals(dir.getName())) {
-                        // skip camel-spring-dm
-                        if (dir.isDirectory() && "camel-spring-dm".equals(dir.getName())) {
-                            continue;
-                        }
                         // the directory must be in the list of known starters
                         if (!starters.contains(dir.getName())) {
                             continue;
@@ -326,10 +318,6 @@ public class PrepareCatalogSpringBootMojo extends AbstractMojo {
             File[] languages = componentsDir.listFiles();
             if (languages != null) {
                 for (File dir : languages) {
-                    // skip camel-spring-dm
-                    if (dir.isDirectory() && "camel-spring-dm".equals(dir.getName())) {
-                        continue;
-                    }
                     // the directory must be in the list of known starters
                     if (!starters.contains(dir.getName())) {
                         continue;
@@ -412,10 +400,6 @@ public class PrepareCatalogSpringBootMojo extends AbstractMojo {
             File[] others = componentsDir.listFiles();
             if (others != null) {
                 for (File dir : others) {
-                    // skip camel-spring-dm
-                    if (dir.isDirectory() && "camel-spring-dm".equals(dir.getName())) {
-                        continue;
-                    }
                     // the directory must be in the list of known starters
                     if (!starters.contains(dir.getName())) {
                         continue;
@@ -432,6 +416,7 @@ public class PrepareCatalogSpringBootMojo extends AbstractMojo {
                     boolean special2 = "camel-linkedin".equals(dir.getName())
                         || "camel-olingo2".equals(dir.getName())
                         || "camel-olingo4".equals(dir.getName())
+                        || "camel-servicenow".equals(dir.getName())
                         || "camel-salesforce".equals(dir.getName());
                     if (special || special2) {
                         continue;

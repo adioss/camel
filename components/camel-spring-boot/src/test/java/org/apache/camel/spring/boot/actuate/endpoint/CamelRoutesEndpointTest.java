@@ -20,7 +20,7 @@ import java.util.List;
 
 import org.apache.camel.CamelContext;
 import org.apache.camel.spring.boot.CamelAutoConfiguration;
-import org.apache.camel.spring.boot.actuate.endpoint.CamelRoutesEndpoint.RouteEndpointInfo;
+import org.apache.camel.spring.boot.model.RouteInfo;
 import org.junit.Assert;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -28,11 +28,13 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.autoconfigure.EnableAutoConfiguration;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.test.annotation.DirtiesContext;
 import org.springframework.test.context.junit4.SpringRunner;
 
 /**
  * Test for the {@link CamelRoutesEndpoint} actuator endpoint.
  */
+@DirtiesContext
 @RunWith(SpringRunner.class)
 @EnableAutoConfiguration
 @SpringBootApplication
@@ -47,7 +49,7 @@ public class CamelRoutesEndpointTest extends Assert {
 
     @Test
     public void testRoutesEndpoint() throws Exception {
-        List<RouteEndpointInfo> routes = endpoint.invoke();
+        List<RouteInfo> routes = endpoint.invoke();
 
         assertFalse(routes.isEmpty());
         assertEquals(routes.size(), camelContext.getRoutes().size());
